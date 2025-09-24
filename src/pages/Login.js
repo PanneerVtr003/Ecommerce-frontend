@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useAuth } from "../context/AuthContext"; // ✅ import context
+import { useAuth } from "../context/AuthContext";
 import "./Auth.css";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login } = useAuth(); // ✅ use login from context
+  const { login } = useAuth();
+
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -31,10 +32,8 @@ const Login = () => {
         password: formData.password,
       });
 
-      // ✅ Update auth context (this makes app reactive immediately)
       login(res.data.user, res.data.token);
-
-      navigate("/", { replace: true });
+      navigate("/", { replace: true }); // direct to home
     } catch (err) {
       console.error("Login error:", err);
       setError(err.response?.data?.message || "Login failed");
