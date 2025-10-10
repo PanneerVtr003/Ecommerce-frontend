@@ -1,45 +1,26 @@
-import axios from "axios";
+import React, { useState, useEffect } from "react";
+import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import "./Checkout.css";
 
-const API_URL = process.env.REACT_APP_API_BASE_URL || "http://localhost:5000/api";
+const API_URL = `${process.env.REACT_APP_API_URL}/api/orders`;
 
-const api = axios.create({
-  baseURL: API_URL,
-});
+const orderService = {
+  createOrder: async (orderData) => {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(orderData),
+    });
 
-// Attach token automatically
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token"); // assuming you store JWT as 'token'
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to create order");
+    }
 
-export const orderService = {
-  // Create a new order
-  async createOrder(orderData) {
-    // Pass userId from the token payload or backend decodes it
-    const response = await api.post("/orders", orderData);
-    return response.data;
-  },
-
-  // Get all orders for the logged-in user
-  async getOrders(userId) {
-    // If backend uses JWT, userId may not be needed in URL
-    const response = await api.get(`/orders/${userId}`);
-    return response.data;
-  },
-
-  // Get single order by id
-  async getOrderById(id) {
-    const response = await api.get(`/orders/${id}`);
-    return response.data;
-  },
-
-  // Update order status (admin functionality)
-  async updateOrderStatus(id, status) {
-    const response = await api.patch(`/orders/${id}/status`, { status });
-    return response.data;
+    const data = await response.json();
+    return data; // returns saved order from backend
   },
 };
 

@@ -1,149 +1,112 @@
-// pages/Register.js
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
-import { useAuth } from "../context/AuthContext"; // ✅ use context
-import "./Auth.css";
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const Register = () => {
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
   });
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const navigate = useNavigate();
-  const { login } = useAuth(); // ✅ use context login
 
-  const handleInputChange = (e) => {
+  const handleChange = (e) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [e.target.name]: e.target.value
     });
-    setError("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setError('');
+    setSuccess('');
 
-    if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
-      setError("Please fill in all fields");
-      return;
-    }
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters long");
+      setError('Passwords do not match');
       return;
     }
 
-    setLoading(true);
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
+    }
 
     try {
-      const res = await axios.post("http://localhost:5000/api/users/register", {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-      });
+      await axios.post('http://localhost:5000/api/users/register', {
+  username: formData.username,
+  email: formData.email,
+  password: formData.password
+});
 
-      console.log("✅ Registered:", res.data);
-
-      // ✅ Save user into AuthContext (this avoids refresh problem)
-      login(res.data.user, res.data.token);
-
-      navigate("/", { replace: true });
+      setSuccess('Registration successful! Redirecting to login...');
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
     } catch (err) {
-      console.error("Registration error:", err);
-      setError(err.response?.data?.message || "Registration failed");
-    } finally {
-      setLoading(false);
+      setError(err.response?.data?.message || 'Registration failed');
     }
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-container">
-        <div className="auth-card">
-          <div className="auth-header">
-            <h1>Create Account</h1>
-            <p>Register to start shopping and placing orders</p>
-          </div>
-
-          {error && <div className="auth-error">{error}</div>}
-
-          <form onSubmit={handleSubmit} className="auth-form">
-            <div className="input-group">
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                required
-                className="auth-input"
-                placeholder=" "
-              />
-              <label className="auth-label">Full Name</label>
-            </div>
-
-            <div className="input-group">
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                required
-                className="auth-input"
-                placeholder=" "
-              />
-              <label className="auth-label">Email Address</label>
-            </div>
-
-            <div className="input-group">
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                required
-                className="auth-input"
-                placeholder=" "
-              />
-              <label className="auth-label">Password (min. 6 characters)</label>
-            </div>
-
-            <div className="input-group">
-              <input
-                type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleInputChange}
-                required
-                className="auth-input"
-                placeholder=" "
-              />
-              <label className="auth-label">Confirm Password</label>
-            </div>
-
-            <button type="submit" className="auth-button" disabled={loading}>
-              {loading ? <div className="spinner"></div> : "Create Account"}
-            </button>
-          </form>
-
-          <div className="auth-footer">
-            <p>
-              Already have an account?{" "}
-              <Link to="/login" className="auth-link">
-                Sign in here
-              </Link>
-            </p>
-          </div>
+    <div className="container">
+      <h2>Create Account</h2>
+      <form onSubmit={handleSubmit}>
+        {error && <div className="error">{error}</div>}
+        {success && <div className="success">{success}</div>}
+        
+        <div className="form-group">
+          <label>Username:</label>
+          <input
+            type="text"
+            name="username"
+            value={formData.username}
+            onChange={handleChange}
+            required
+          />
         </div>
+
+        <div className="form-group">
+          <label>Email:</label>
+          <input
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Password:</label>
+          <input
+            type="password"
+            name="password"
+            value={formData.password}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Confirm Password:</label>
+          <input
+            type="password"
+            name="confirmPassword"
+            value={formData.confirmPassword}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <button type="submit" className="btn">Register</button>
+      </form>
+
+      <div className="link">
+        Already have an account? <Link to="/login">Login here</Link>
       </div>
     </div>
   );

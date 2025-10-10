@@ -1,6 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
+import "aos/dist/aos.css"
+import AOS from "aos"
 import App from './App';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
