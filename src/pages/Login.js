@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
+import './Auth.css'
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -53,7 +54,7 @@ const Login = () => {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Email Address:</label>
+            <label>Email Address</label>
             <input
               type="email"
               name="email"
@@ -65,7 +66,7 @@ const Login = () => {
           </div>
 
           <div className="form-group">
-            <label>Password:</label>
+            <label>Password</label>
             <input
               type="password"
               name="password"
