@@ -23,6 +23,7 @@ const Navbar = () => {
           <Link to="/" className="nav-link" onClick={() => setIsMenuOpen(false)}>
             🏠 Home
           </Link>
+
           <Link to="/products" className="nav-link" onClick={() => setIsMenuOpen(false)}>
             📦 Products
           </Link>
@@ -32,8 +33,11 @@ const Navbar = () => {
               <Link to="/orders" className="nav-link" onClick={() => setIsMenuOpen(false)}>
                 📋 Orders
               </Link>
+
               <div className="user-section">
-                <span className="nav-user">👤 Hello, {user.name}</span>
+                <span className="nav-user">
+                  👤  {user.username || user.email || "User"}
+                </span>
                 <button
                   onClick={() => {
                     logout();
@@ -61,7 +65,10 @@ const Navbar = () => {
           </Link>
         </div>
 
-        <div className={`menu-toggle ${isMenuOpen ? "active" : ""}`} onClick={toggleMenu}>
+        <div
+          className={`menu-toggle ${isMenuOpen ? "active" : ""}`}
+          onClick={toggleMenu}
+        >
           <span></span>
           <span></span>
           <span></span>

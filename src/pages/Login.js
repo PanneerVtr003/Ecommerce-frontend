@@ -5,80 +5,90 @@ import axios from "axios";
 const Login = () => {
   const [formData, setFormData] = useState({
     email: "",
-    password: ""
+    password: "",
   });
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const navigate = useNavigate();
 
+  // Handle input changes
   const handleChange = (e) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
+  // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
 
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/auth/login", // Make sure backend route matches
-        formData
-      );
+      const res = await axios.post("http://localhost:5000/api/users/login", formData, {
+        headers: { "Content-Type": "application/json" },
+      });
 
-      // ✅ Store token & user data in localStorage
-      localStorage.setItem("token", response.data.token);
-      localStorage.setItem("user", JSON.stringify(response.data.user));
+      // Save token and user in localStorage
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
 
-      // ✅ Redirect to home page
-      navigate("/home");
+      // ✅ Redirect after success
+      setSuccess("Login successful! Redirecting...");
+      setTimeout(() => {
+        navigate("/home");
+      }, 1000);
     } catch (err) {
-      console.error(err);
-      setError(
-        err.response?.data?.message || "Login failed. Please try again."
-      );
+      console.error("Login error:", err);
+      setError(err.response?.data?.message || "Invalid credentials. Please try again.");
     }
   };
 
   return (
-    <div className="login-container">
-      <h2>Login to Your Account</h2>
+    <div className="auth-container">
+      <div className="auth-card">
+        <h2>Login to Your Account</h2>
 
-      {error && <div className="error">{error}</div>}
+        {error && <div className="error-msg">{error}</div>}
+        {success && <div className="success-msg">{success}</div>}
 
-      <form onSubmit={handleSubmit} className="login-form">
-        <div className="form-group">
-          <label>Email:</label>
-          <input
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-            placeholder="Enter your email"
-          />
-        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Email Address:</label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="Enter your email"
+              required
+            />
+          </div>
 
-        <div className="form-group">
-          <label>Password:</label>
-          <input
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            required
-            placeholder="Enter your password"
-          />
-        </div>
+          <div className="form-group">
+            <label>Password:</label>
+            <input
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              placeholder="Enter your password"
+              required
+            />
+          </div>
 
-        <button type="submit" className="btn">
-          Login
-        </button>
-      </form>
+          <button type="submit" className="btn-submit">
+            Login
+          </button>
+        </form>
 
-      <div className="link">
-        Don't have an account? <Link to="/register">Register here</Link>
+        <p className="redirect-text">
+          Don’t have an account?{" "}
+          <Link to="/register" className="link">
+            Register here
+          </Link>
+        </p>
       </div>
     </div>
   );
