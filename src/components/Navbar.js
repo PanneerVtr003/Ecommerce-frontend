@@ -15,29 +15,17 @@ const Navbar = () => {
   return (
     <nav className="navbar">
       <div className="nav-container">
-        <Link to="/" className="nav-logo">
-          🛒 E-Store
-        </Link>
+        <Link to="/" className="nav-logo">🛒 E-Store</Link>
 
         <div className={`nav-menu ${isMenuOpen ? "active" : ""}`}>
-          <Link to="/" className="nav-link" onClick={() => setIsMenuOpen(false)}>
-            🏠 Home
-          </Link>
-
-          <Link to="/products" className="nav-link" onClick={() => setIsMenuOpen(false)}>
-            📦 Products
-          </Link>
+          <Link to="/" className="nav-link" onClick={() => setIsMenuOpen(false)}>🏠 Home</Link>
+          <Link to="/products" className="nav-link" onClick={() => setIsMenuOpen(false)}>📦 Products</Link>
 
           {user ? (
             <>
-              <Link to="/orders" className="nav-link" onClick={() => setIsMenuOpen(false)}>
-                📋 Orders
-              </Link>
-
+              <Link to="/orders" className="nav-link" onClick={() => setIsMenuOpen(false)}>📋 Orders</Link>
               <div className="user-section">
-                <span className="nav-user">
-                  👤  {user.username || user.email || "User"}
-                </span>
+                <span className="nav-user">👤 {user?.username}</span>
                 <button
                   onClick={() => {
                     logout();
@@ -51,12 +39,8 @@ const Navbar = () => {
             </>
           ) : (
             <>
-              <Link to="/login" className="nav-link" onClick={() => setIsMenuOpen(false)}>
-                🔑 Login
-              </Link>
-              <Link to="/register" className="nav-link" onClick={() => setIsMenuOpen(false)}>
-                📝 Register
-              </Link>
+              <Link to="/login" className="nav-link" onClick={() => setIsMenuOpen(false)}>🔑 Login</Link>
+              <Link to="/register" className="nav-link" onClick={() => setIsMenuOpen(false)}>📝 Register</Link>
             </>
           )}
 
@@ -65,10 +49,7 @@ const Navbar = () => {
           </Link>
         </div>
 
-        <div
-          className={`menu-toggle ${isMenuOpen ? "active" : ""}`}
-          onClick={toggleMenu}
-        >
+        <div className={`menu-toggle ${isMenuOpen ? "active" : ""}`} onClick={toggleMenu}>
           <span></span>
           <span></span>
           <span></span>

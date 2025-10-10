@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useAuth } from "../context/AuthContext";
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -8,10 +9,10 @@ const Login = () => {
     password: "",
   });
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const navigate = useNavigate();
 
-  // Handle input changes
+  const { login } = useAuth(); // Use context login
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -19,29 +20,27 @@ const Login = () => {
     });
   };
 
-  // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setSuccess("");
 
     try {
-      const res = await axios.post("http://localhost:5000/api/users/login", formData, {
-        headers: { "Content-Type": "application/json" },
-      });
+      const res = await axios.post(
+        "http://localhost:5000/api/users/login", // ✅ Correct URL
+        formData,
+        { headers: { "Content-Type": "application/json" } }
+      );
 
-      // Save token and user in localStorage
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("user", JSON.stringify(res.data.user));
+      // Save token and user in context and localStorage
+      login(res.data.user, res.data.token);
 
-      // ✅ Redirect after success
-      setSuccess("Login successful! Redirecting...");
-      setTimeout(() => {
-        navigate("/home");
-      }, 1000);
+      // Redirect immediately after login
+      navigate("/");
     } catch (err) {
       console.error("Login error:", err);
-      setError(err.response?.data?.message || "Invalid credentials. Please try again.");
+      setError(
+        err.response?.data?.message || "Invalid credentials. Please try again."
+      );
     }
   };
 
@@ -51,7 +50,6 @@ const Login = () => {
         <h2>Login to Your Account</h2>
 
         {error && <div className="error-msg">{error}</div>}
-        {success && <div className="success-msg">{success}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
