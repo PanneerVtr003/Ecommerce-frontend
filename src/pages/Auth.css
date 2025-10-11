@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 .register-container {
   min-height: 100vh;
   display: flex;
@@ -500,7 +500,7 @@
   justify-content: center;
   align-items: center;
 }
-=======
+
 .auth-container { display:flex; justify-content:center; align-items:center; min-height:100vh; background:#f1f1f1; }
 .auth-card { background:#fff; padding:2rem; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1); width:350px; }
 .auth-card h2 { margin-bottom:1rem; text-align:center; }
@@ -511,4 +511,3 @@
 .success-msg { color:green; margin-bottom:1rem; text-align:center; }
 .redirect-text { text-align:center; margin-top:1rem; }
 .redirect-text a { color:#007bff; text-decoration:none; }
->>>>>>> 666684e (Your commit message)
