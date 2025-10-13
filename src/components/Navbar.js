@@ -23,6 +23,7 @@ const Navbar = () => {
 
           {user ? (
             <>
+              <Link to="/orders" className="nav-link" onClick={() => setIsMenuOpen(false)}>📋 Orders</Link>
               <div className="user-section">
                 <span className="nav-user">👤 {user?.username}</span>
                 <button
