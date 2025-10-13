@@ -15,10 +15,8 @@ const Orders = () => {
   useEffect(() => {
     if (!authLoading) {
       if (user) {
-        // User is logged in - fetch orders by user email
         fetchUserOrders();
       } else {
-        // User is not logged in - show guest order lookup
         setLoading(false);
         setShowGuestLogin(true);
       }
@@ -28,21 +26,31 @@ const Orders = () => {
   const fetchUserOrders = async () => {
     try {
       setLoading(true);
+      setError('');
       const token = localStorage.getItem('token');
       
-      const response = await fetch('/api/orders/my-orders', {
+      console.log('🔧 Fetching orders for user:', user?.email);
+
+      const response = await fetch('https://ecommerce-backend-9987.onrender.com/api/orders/my-orders', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
 
-      if (!response.ok) throw new Error('Failed to fetch orders');
+      console.log('🔧 Response status:', response.status);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to fetch orders`);
+      }
 
       const data = await response.json();
+      console.log('✅ Orders received:', data.orders);
+      
       setOrders(data.orders || []);
     } catch (err) {
-      setError('Failed to load your orders');
+      console.error('❌ Orders fetch error:', err);
+      setError('Failed to load your orders: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -51,16 +59,26 @@ const Orders = () => {
   const fetchGuestOrders = async (email) => {
     try {
       setLoading(true);
+      setError('');
       
-      const response = await fetch(`/api/orders/guest-orders?email=${encodeURIComponent(email)}`);
+      console.log('🔧 Fetching guest orders for:', email);
+
+      const response = await fetch(`https://ecommerce-backend-9987.onrender.com/api/orders/guest-orders?email=${encodeURIComponent(email)}`);
       
-      if (!response.ok) throw new Error('Failed to fetch orders');
+      console.log('🔧 Guest response status:', response.status);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: No orders found`);
+      }
 
       const data = await response.json();
+      console.log('✅ Guest orders received:', data.orders);
+      
       setOrders(data.orders || []);
       setShowGuestLogin(false);
     } catch (err) {
-      setError('No orders found for this email address');
+      console.error('❌ Guest orders error:', err);
+      setError('No orders found for this email address: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -140,11 +158,11 @@ const Orders = () => {
         </div>
       )}
 
-      {orders.length === 0 && !showGuestLogin && !error ? (
+      {orders.length === 0 && !showGuestLogin && !error && !loading ? (
         <div className="no-orders">
           <div className="no-orders-icon">📦</div>
-          <h3>No orders found</h3>
-          <p>We couldn't find any orders for {user?.email || guestEmail}.</p>
+          <h3>No orders yet</h3>
+          <p>You haven't placed any orders yet.</p>
           <button onClick={() => navigate('/products')} className="btn-primary">
             Start Shopping
           </button>
@@ -155,7 +173,7 @@ const Orders = () => {
             <div key={order._id} className="order-card">
               <div className="order-header">
                 <div className="order-info">
-                  <h3>Order #{order._id.toString().slice(-6).toUpperCase()}</h3>
+                  <h3>Order #{order._id.toString().slice(-8).toUpperCase()}</h3>
                   <span className="order-date">
                     {new Date(order.createdAt).toLocaleDateString('en-US', {
                       year: 'numeric',
@@ -167,7 +185,7 @@ const Orders = () => {
                   </span>
                 </div>
                 <span className={`order-status ${order.status}`}>
-                  {order.status}
+                  {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                 </span>
               </div>
               
@@ -199,9 +217,9 @@ const Orders = () => {
                 <h4>Shipping Address:</h4>
                 <p>
                   {order.shippingAddress.firstName} {order.shippingAddress.lastName}<br/>
+                  {order.shippingAddress.email}<br/>
                   {order.shippingAddress.address}<br/>
-                  {order.shippingAddress.city}, {order.shippingAddress.zipCode}<br/>
-                  {order.shippingAddress.email}
+                  {order.shippingAddress.city}, {order.shippingAddress.zipCode}
                 </p>
               </div>
             </div>

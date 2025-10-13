@@ -124,74 +124,66 @@ const Checkout = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!validateForm()) {
-      setError("Please fix the form errors before submitting");
-      return;
+  if (!validateForm()) {
+    setError("Please fix the form errors before submitting");
+    return;
+  }
+
+  setLoading(true);
+  setError("");
+
+  try {
+    // Prepare order data
+    const orderData = {
+      items: items,
+      total: getCartTotal(),
+      shippingAddress: {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        address: formData.address,
+        city: formData.city,
+        zipCode: formData.zipCode,
+        country: 'United States'
+      },
+      paymentMethod: paymentMethod,
+      paymentCode: paymentMethod === 'cod' ? paymentCode : null
+    };
+
+    console.log('🛒 Sending order to backend:', orderData);
+
+    // Send order to backend
+    const response = await fetch('https://ecommerce-backend-9987.onrender.com/api/orders', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify(orderData)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to create order');
     }
 
-    if (items.length === 0) {
-      setError("Your cart is empty");
-      return;
-    }
+    console.log('✅ Order created successfully:', data);
 
-    setLoading(true);
-    setError("");
-
-    try {
-      // Generate payment code for COD
-      let code = "";
-      if (paymentMethod === "cod") {
-        code = generatePaymentCode();
-        setPaymentCode(code);
-      }
-
-      // Create order data
-      const orderData = {
-        items,
-        total: getCartTotal(),
-        shippingAddress: {
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          address: formData.address,
-          city: formData.city,
-          zipCode: formData.zipCode,
-        },
-        paymentMethod,
-        paymentCode: code || null,
-      };
-
-      // Save to backend
-      const response = await createOrder(orderData);
-      const newOrder = response.order || response;
-
-      // Save order to localStorage as fallback
-      const storedOrders = JSON.parse(localStorage.getItem("orders")) || [];
-      storedOrders.push({
-        ...newOrder,
-        id: newOrder._id || newOrder.id || Date.now(),
-        date: new Date().toISOString(),
-      });
-      localStorage.setItem("orders", JSON.stringify(storedOrders));
-
-      // Save shipping info if checked
-      if (formData.saveInfo) {
-        const { cardNumber, expiryDate, cvv, saveInfo, ...shippingInfo } = formData;
-        localStorage.setItem("savedShippingInfo", JSON.stringify(shippingInfo));
-      }
-
-      clearCart();
-      setOrderId(newOrder._id || newOrder.id);
-      setOrderSuccess(true);
-      
-    } catch (err) {
-      setError(err.message || "Failed to create order. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Clear cart and show success
+    clearCart();
+    setOrderId(data.order._id || data.order.id);
+    setOrderSuccess(true);
+    
+  } catch (err) {
+    console.error('❌ Order creation failed:', err);
+    setError(err.message || "Failed to create order. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ✅ Success screen
   if (orderSuccess) {
