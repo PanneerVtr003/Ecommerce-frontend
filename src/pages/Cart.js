@@ -1,4 +1,3 @@
-// pages/Cart.js
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
@@ -9,8 +8,20 @@ import "./Cart.css";
 
 const Cart = () => {
   const { items, clearCart } = useCart();
-  const { user } = useAuth();
+  const { user, loading } = useAuth(); // Add loading state
   const navigate = useNavigate();
+
+  // Show loading while auth is being checked
+  if (loading) {
+    return (
+      <div className="cart-page">
+        <div className="loading">
+          <div className="spinner"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleCheckout = () => {
     if (!user) {
