@@ -23,7 +23,6 @@ const Navbar = () => {
 
           {user ? (
             <>
-              <Link to="/orders" className="nav-link" onClick={() => setIsMenuOpen(false)}>📋 Orders</Link>
               <div className="user-section">
                 <span className="nav-user">👤 {user?.username}</span>
                 <button
@@ -44,7 +43,9 @@ const Navbar = () => {
             </>
           )}
 
-          
+          <Link to="/cart" className="nav-link cart-link" onClick={() => setIsMenuOpen(false)}>
+            🛒 Cart <span className="cart-count">{getCartItemsCount()}</span>
+          </Link>
         </div>
 
         <div className={`menu-toggle ${isMenuOpen ? "active" : ""}`} onClick={toggleMenu}>
