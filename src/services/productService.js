@@ -1,29 +1,67 @@
-// src/services/productService.js
+import { API } from './api';
 
-const BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api/products`;
+// 🛍️ Get all products
+export const getAllProducts = async () => {
+  try {
+    const response = await API.get("/products");
+    return response;
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    throw error;
+  }
+};
 
-export const productService = {
-  getAllProducts: async () => {
-    try {
-      const response = await fetch(BASE_URL);
+// 🔎 Get single product by ID
+export const getProductById = async (productId) => {
+  try {
+    const response = await API.get(`/products/${productId}`);
+    return response;
+  } catch (error) {
+    console.error('Error fetching product:', error);
+    throw error;
+  }
+};
 
-      // Check if response is JSON
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Server returned non-JSON response');
-      }
+// 🆕 Add a new product (Admin only)
+export const createProduct = async (productData) => {
+  try {
+    const response = await API.post("/products", productData);
+    return response;
+  } catch (error) {
+    console.error('Error creating product:', error);
+    throw error;
+  }
+};
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+// ✏️ Update existing product (Admin only)
+export const updateProduct = async (productId, productData) => {
+  try {
+    const response = await API.put(`/products/${productId}`, productData);
+    return response;
+  } catch (error) {
+    console.error('Error updating product:', error);
+    throw error;
+  }
+};
 
-      const data = await response.json();
+// ❌ Delete product (Admin only)
+export const deleteProduct = async (productId) => {
+  try {
+    const response = await API.delete(`/products/${productId}`);
+    return response;
+  } catch (error) {
+    console.error('Error deleting product:', error);
+    throw error;
+  }
+};
 
-      // Backend returns { products, page, pages }, we only need products
-      return data.products || [];
-    } catch (error) {
-      console.error('Service error:', error);
-      throw error; // Throw to be handled by component
-    }
-  },
+// ⭐ Get top rated products
+export const getTopProducts = async () => {
+  try {
+    const response = await API.get("/products/top");
+    return response;
+  } catch (error) {
+    console.error('Error fetching top products:', error);
+    throw error;
+  }
 };

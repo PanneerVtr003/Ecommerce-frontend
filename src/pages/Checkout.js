@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { createOrder } from "../services/api";
 import "./Checkout.css";
 
 const Checkout = () => {
@@ -32,13 +32,25 @@ const Checkout = () => {
   });
 
   useEffect(() => {
+    if (user?.email) {
+      setFormData(prev => ({
+        ...prev,
+        email: user.email
+      }));
+    }
+
     const savedInfo = localStorage.getItem("savedShippingInfo");
     if (savedInfo) {
-      setFormData((prev) => ({
-        ...prev,
-        ...JSON.parse(savedInfo),
-        email: user?.email || prev.email,
-      }));
+      try {
+        const parsedInfo = JSON.parse(savedInfo);
+        setFormData((prev) => ({
+          ...prev,
+          ...parsedInfo,
+          email: user?.email || prev.email,
+        }));
+      } catch (err) {
+        console.error('Error parsing saved shipping info:', err);
+      }
     }
   }, [user]);
 
@@ -49,34 +61,33 @@ const Checkout = () => {
   const validateForm = () => {
     const errors = {};
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const zipRegex = /^\d{5}$/;
+    const zipRegex = /^\d{5}(-\d{4})?$/;
 
     if (!formData.firstName.trim()) errors.firstName = "First name is required";
     if (!formData.lastName.trim()) errors.lastName = "Last name is required";
     if (!emailRegex.test(formData.email)) errors.email = "Valid email is required";
     if (!formData.address.trim()) errors.address = "Address is required";
     if (!formData.city.trim()) errors.city = "City is required";
-    if (!zipRegex.test(formData.zipCode)) errors.zipCode = "Valid 5-digit ZIP code is required";
+    if (!zipRegex.test(formData.zipCode)) errors.zipCode = "Valid ZIP code is required";
 
     if (paymentMethod === "card") {
-      const cardRegex = /^\d{16}$/;
+      const cardRegex = /^\d{13,19}$/;
       const expiryRegex = /^(0[1-9]|1[0-2])\/\d{2}$/;
       const cvvRegex = /^\d{3,4}$/;
 
       const cleanCardNumber = formData.cardNumber.replace(/\s/g, "");
       if (!cardRegex.test(cleanCardNumber))
-        errors.cardNumber = "Valid 16-digit card number is required";
+        errors.cardNumber = "Valid card number (13-19 digits) is required";
       if (!expiryRegex.test(formData.expiryDate))
         errors.expiryDate = "Valid expiry date (MM/YY) is required";
       if (!cvvRegex.test(formData.cvv)) errors.cvv = "Valid CVV is required";
 
+      // Check if card is expired
       if (formData.expiryDate && expiryRegex.test(formData.expiryDate)) {
         const [month, year] = formData.expiryDate.split("/");
-        const expiry = new Date(2000 + parseInt(year), parseInt(month) - 1);
-        const now = new Date();
-        if (expiry < now) {
-          errors.expiryDate = "Card has expired";
-        }
+        const expiry = new Date(2000 + parseInt(year), parseInt(month));
+        const currentDate = new Date();
+        if (expiry <= currentDate) errors.expiryDate = "Card has expired";
       }
     }
 
@@ -92,10 +103,7 @@ const Checkout = () => {
     });
 
     if (formErrors[name]) {
-      setFormErrors({
-        ...formErrors,
-        [name]: "",
-      });
+      setFormErrors({ ...formErrors, [name]: "" });
     }
   };
 
@@ -104,28 +112,27 @@ const Checkout = () => {
     const matches = v.match(/\d{1,16}/g);
     const match = matches ? matches[0] : "";
     const parts = [];
-
     for (let i = 0; i < match.length; i += 4) {
       parts.push(match.substring(i, i + 4));
     }
-
     return parts.length ? parts.join(" ") : value;
   };
 
   const handleCardNumberChange = (e) => {
     const formattedValue = formatCardNumber(e.target.value);
-    setFormData({
-      ...formData,
-      cardNumber: formattedValue,
-    });
+    setFormData({ ...formData, cardNumber: formattedValue });
   };
 
-  // ✅ Updated handleSubmit - sends order to backend
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!validateForm()) {
-      setError("Please fix the form errors");
+      setError("Please fix the form errors before submitting");
+      return;
+    }
+
+    if (items.length === 0) {
+      setError("Your cart is empty");
       return;
     }
 
@@ -133,45 +140,54 @@ const Checkout = () => {
     setError("");
 
     try {
+      // Generate payment code for COD
+      let code = "";
+      if (paymentMethod === "cod") {
+        code = generatePaymentCode();
+        setPaymentCode(code);
+      }
+
+      // Create order data
       const orderData = {
-        user: user?._id,
         items,
         total: getCartTotal(),
         shippingAddress: {
           firstName: formData.firstName,
           lastName: formData.lastName,
+          email: formData.email,
           address: formData.address,
           city: formData.city,
           zipCode: formData.zipCode,
         },
         paymentMethod,
-        email: formData.email,
+        paymentCode: code || null,
       };
 
-      if (paymentMethod === "cod") {
-        const code = generatePaymentCode();
-        setPaymentCode(code);
-        orderData.paymentCode = code;
-      }
+      // Save to backend
+      const response = await createOrder(orderData);
+      const newOrder = response.order || response;
 
-      // ✅ Send data to backend
-      const res = await axios.post("http://localhost:5000/api/orders", orderData, {
-        headers: { "Content-Type": "application/json" },
+      // Save order to localStorage as fallback
+      const storedOrders = JSON.parse(localStorage.getItem("orders")) || [];
+      storedOrders.push({
+        ...newOrder,
+        id: newOrder._id || newOrder.id || Date.now(),
+        date: new Date().toISOString(),
       });
+      localStorage.setItem("orders", JSON.stringify(storedOrders));
 
-      const createdOrder = res.data;
-      setOrderId(createdOrder._id || createdOrder.id);
-
+      // Save shipping info if checked
       if (formData.saveInfo) {
         const { cardNumber, expiryDate, cvv, saveInfo, ...shippingInfo } = formData;
         localStorage.setItem("savedShippingInfo", JSON.stringify(shippingInfo));
       }
 
       clearCart();
+      setOrderId(newOrder._id || newOrder.id);
       setOrderSuccess(true);
+      
     } catch (err) {
-      console.error("Order creation failed:", err.response?.data || err.message);
-      setError(err.response?.data?.message || "Failed to place order. Please try again.");
+      setError(err.message || "Failed to create order. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -192,7 +208,7 @@ const Checkout = () => {
               Your order ID is: <span className="order-id">{orderId}</span>
             </p>
 
-            {paymentMethod === "cod" && (
+            {paymentMethod === "cod" && paymentCode && (
               <div className="payment-code-section">
                 <h3>Cash on Delivery Payment Code</h3>
                 <div className="payment-code">{paymentCode}</div>
@@ -240,11 +256,6 @@ const Checkout = () => {
     <div className="checkout-page">
       <div className="checkout-header">
         <h1>Checkout</h1>
-        <div className="checkout-steps">
-          <div className="step active">1. Shipping</div>
-          <div className="step">2. Payment</div>
-          <div className="step">3. Confirmation</div>
-        </div>
       </div>
 
       <div className="checkout-container">
@@ -257,110 +268,91 @@ const Checkout = () => {
           )}
 
           <form onSubmit={handleSubmit} className="checkout-form">
-            {/* CONTACT */}
+            {/* Contact Info */}
             <div className="form-section">
               <h2 className="section-title">👤 Contact Information</h2>
               <div className="form-row">
                 <div className="form-group">
-                  <label>First Name</label>
                   <input
                     type="text"
                     name="firstName"
-                    placeholder="Enter your first name"
+                    placeholder="First Name"
                     value={formData.firstName}
                     onChange={handleInputChange}
-                    className={formErrors.firstName ? "error" : ""}
+                    className={formErrors.firstName ? 'error' : ''}
                   />
-                  {formErrors.firstName && (
-                    <span className="field-error">{formErrors.firstName}</span>
-                  )}
+                  {formErrors.firstName && <span className="field-error">{formErrors.firstName}</span>}
                 </div>
                 <div className="form-group">
-                  <label>Last Name</label>
                   <input
                     type="text"
                     name="lastName"
-                    placeholder="Enter your last name"
+                    placeholder="Last Name"
                     value={formData.lastName}
                     onChange={handleInputChange}
-                    className={formErrors.lastName ? "error" : ""}
+                    className={formErrors.lastName ? 'error' : ''}
                   />
-                  {formErrors.lastName && (
-                    <span className="field-error">{formErrors.lastName}</span>
-                  )}
+                  {formErrors.lastName && <span className="field-error">{formErrors.lastName}</span>}
                 </div>
               </div>
-
               <div className="form-group">
-                <label>Email Address</label>
                 <input
                   type="email"
                   name="email"
-                  placeholder="your@email.com"
+                  placeholder="Email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className={formErrors.email ? "error" : ""}
+                  className={formErrors.email ? 'error' : ''}
                 />
-                {formErrors.email && (
-                  <span className="field-error">{formErrors.email}</span>
-                )}
+                {formErrors.email && <span className="field-error">{formErrors.email}</span>}
               </div>
             </div>
 
-            {/* SHIPPING */}
+            {/* Shipping */}
             <div className="form-section">
               <h2 className="section-title">📍 Shipping Address</h2>
               <div className="form-group">
-                <label>Street Address</label>
                 <input
                   type="text"
                   name="address"
-                  placeholder="123 Main Street"
+                  placeholder="Street Address"
                   value={formData.address}
                   onChange={handleInputChange}
-                  className={formErrors.address ? "error" : ""}
+                  className={formErrors.address ? 'error' : ''}
                 />
-                {formErrors.address && (
-                  <span className="field-error">{formErrors.address}</span>
-                )}
+                {formErrors.address && <span className="field-error">{formErrors.address}</span>}
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>City</label>
                   <input
                     type="text"
                     name="city"
                     placeholder="City"
                     value={formData.city}
                     onChange={handleInputChange}
-                    className={formErrors.city ? "error" : ""}
+                    className={formErrors.city ? 'error' : ''}
                   />
-                  {formErrors.city && (
-                    <span className="field-error">{formErrors.city}</span>
-                  )}
+                  {formErrors.city && <span className="field-error">{formErrors.city}</span>}
                 </div>
                 <div className="form-group">
-                  <label>ZIP Code</label>
                   <input
                     type="text"
                     name="zipCode"
-                    placeholder="12345"
+                    placeholder="ZIP Code"
                     value={formData.zipCode}
                     onChange={handleInputChange}
-                    className={formErrors.zipCode ? "error" : ""}
+                    className={formErrors.zipCode ? 'error' : ''}
                   />
-                  {formErrors.zipCode && (
-                    <span className="field-error">{formErrors.zipCode}</span>
-                  )}
+                  {formErrors.zipCode && <span className="field-error">{formErrors.zipCode}</span>}
                 </div>
               </div>
             </div>
 
-            {/* PAYMENT */}
+            {/* Payment */}
             <div className="form-section">
               <h2 className="section-title">💳 Payment Method</h2>
-              <div className="payment-methods">
-                <label className={`payment-option ${paymentMethod === "card" ? "active" : ""}`}>
+              <div className="payment-options">
+                <label className="payment-option">
                   <input
                     type="radio"
                     name="paymentMethod"
@@ -368,10 +360,9 @@ const Checkout = () => {
                     checked={paymentMethod === "card"}
                     onChange={() => setPaymentMethod("card")}
                   />
-                  💳 Credit/Debit Card
+                  <span>Credit/Debit Card</span>
                 </label>
-
-                <label className={`payment-option ${paymentMethod === "cod" ? "active" : ""}`}>
+                <label className="payment-option">
                   <input
                     type="radio"
                     name="paymentMethod"
@@ -379,127 +370,87 @@ const Checkout = () => {
                     checked={paymentMethod === "cod"}
                     onChange={() => setPaymentMethod("cod")}
                   />
-                  💰 Cash on Delivery
+                  <span>Cash on Delivery</span>
                 </label>
               </div>
 
               {paymentMethod === "card" && (
                 <div className="card-details">
                   <div className="form-group">
-                    <label>Card Number</label>
                     <input
                       type="text"
                       name="cardNumber"
-                      placeholder="1234 5678 9012 3456"
+                      placeholder="Card Number"
                       value={formData.cardNumber}
                       onChange={handleCardNumberChange}
-                      maxLength="19"
-                      className={formErrors.cardNumber ? "error" : ""}
+                      className={formErrors.cardNumber ? 'error' : ''}
                     />
-                    {formErrors.cardNumber && (
-                      <span className="field-error">{formErrors.cardNumber}</span>
-                    )}
+                    {formErrors.cardNumber && <span className="field-error">{formErrors.cardNumber}</span>}
                   </div>
-
                   <div className="form-row">
                     <div className="form-group">
-                      <label>Expiry Date</label>
                       <input
                         type="text"
                         name="expiryDate"
                         placeholder="MM/YY"
                         value={formData.expiryDate}
                         onChange={handleInputChange}
-                        maxLength="5"
-                        className={formErrors.expiryDate ? "error" : ""}
+                        className={formErrors.expiryDate ? 'error' : ''}
                       />
-                      {formErrors.expiryDate && (
-                        <span className="field-error">{formErrors.expiryDate}</span>
-                      )}
+                      {formErrors.expiryDate && <span className="field-error">{formErrors.expiryDate}</span>}
                     </div>
                     <div className="form-group">
-                      <label>CVV</label>
                       <input
                         type="text"
                         name="cvv"
-                        placeholder="123"
+                        placeholder="CVV"
                         value={formData.cvv}
                         onChange={handleInputChange}
-                        maxLength="4"
-                        className={formErrors.cvv ? "error" : ""}
+                        className={formErrors.cvv ? 'error' : ''}
                       />
-                      {formErrors.cvv && (
-                        <span className="field-error">{formErrors.cvv}</span>
-                      )}
+                      {formErrors.cvv && <span className="field-error">{formErrors.cvv}</span>}
                     </div>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="form-section">
-              <label className="checkbox-container">
-                <input
-                  type="checkbox"
-                  name="saveInfo"
-                  checked={formData.saveInfo}
-                  onChange={handleInputChange}
-                />
-                Save shipping information for faster checkout next time
-              </label>
-            </div>
+            <label className="save-info-checkbox">
+              <input
+                type="checkbox"
+                name="saveInfo"
+                checked={formData.saveInfo}
+                onChange={handleInputChange}
+              />
+              Save shipping information for next time
+            </label>
 
-            <button type="submit" disabled={loading} className="place-order-btn">
-              {loading ? (
-                <>
-                  <span className="spinner"></span> Processing Your Order...
-                </>
-              ) : (
-                <>
-                  🚀 Place Order - ${getCartTotal().toFixed(2)}
-                </>
-              )}
+            <button 
+              type="submit" 
+              disabled={loading || items.length === 0}
+              className={loading ? 'loading' : ''}
+            >
+              {loading ? "Processing..." : `Place Order - $${getCartTotal().toFixed(2)}`}
             </button>
           </form>
         </div>
 
-        {/* ✅ Order Summary */}
+        {/* Order Summary */}
         <div className="order-summary">
-          <h2 className="summary-title">Order Summary</h2>
+          <h2>Order Summary</h2>
           <div className="order-items">
             {items.map((item) => (
               <div key={item.id} className="order-item">
-                <div className="item-image">
-                  <img src={item.image || "/placeholder-image.jpg"} alt={item.name} />
-                  <span className="item-quantity">{item.quantity}</span>
+                <div className="item-info">
+                  <span className="item-name">{item.name}</span>
+                  <span className="item-quantity">x {item.quantity}</span>
                 </div>
-                <div className="item-details">
-                  <h4>{item.name}</h4>
-                  <p className="item-price">
-                    ${(item.price * item.quantity).toFixed(2)}
-                  </p>
-                </div>
+                <span className="item-price">${(item.price * item.quantity).toFixed(2)}</span>
               </div>
             ))}
           </div>
-
           <div className="order-total">
-            <div className="total-row">
-              <span>Subtotal</span>
-              <span>${getCartTotal().toFixed(2)}</span>
-            </div>
-            <div className="total-row">
-              <span>Shipping</span>
-              <span className="free-shipping">Free</span>
-            </div>
-            <div className="total-row">
-              <span>Tax</span>
-              <span>${(getCartTotal() * 0.08).toFixed(2)}</span>
-            </div>
-            <div className="total-row final-total">
-              <span>Total</span>
-              <span>${(getCartTotal() * 1.08).toFixed(2)}</span>
-            </div>
+            <strong>Total: ${getCartTotal().toFixed(2)}</strong>
           </div>
         </div>
       </div>

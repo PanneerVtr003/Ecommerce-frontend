@@ -1,19 +1,25 @@
-// src/pages/Login.js
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { API } from '../services/api.js';
+import { loginUser } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import './Auth.css';
 
 const Login = () => {
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [formData, setFormData] = useState({ 
+    email: '', 
+    password: '' 
+  });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value.trim() });
+    const { name, value } = e.target;
+    setFormData(prev => ({ 
+      ...prev, 
+      [name]: value 
+    }));
     setError('');
   };
 
@@ -29,15 +35,19 @@ const Login = () => {
     }
 
     try {
-      const response = await API.post('/users/login', {
-        email: formData.email,
+      const response = await loginUser({
+        email: formData.email.trim(),
         password: formData.password
       });
 
-      login({ username: response.username, email: response.email, _id: response._id }, response.token);
-      navigate('/'); // redirect to homepage
+      if (response.user && response.token) {
+        login(response.user, response.token);
+        navigate('/');
+      } else {
+        throw new Error('Invalid response from server');
+      }
     } catch (err) {
-      setError(err.message || 'Login failed. Try again.');
+      setError(err.message || 'Login failed. Please check your credentials and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -46,14 +56,53 @@ const Login = () => {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h2>Login</h2>
-        {error && <div className="error-msg">{error}</div>}
+        <h2>Welcome Back</h2>
+        <p className="auth-subtitle">Sign in to your account</p>
+        
+        {error && (
+          <div className="error-msg">
+            <span className="error-icon">⚠️</span>
+            {error}
+          </div>
+        )}
+        
         <form onSubmit={handleSubmit}>
-          <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="Email" required />
-          <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="Password" required />
-          <button type="submit" disabled={isLoading}>{isLoading ? 'Logging in...' : 'Login'}</button>
+          <div className="form-group">
+            <input 
+              type="email" 
+              name="email" 
+              value={formData.email} 
+              onChange={handleChange} 
+              placeholder="Email address" 
+              required 
+              disabled={isLoading}
+            />
+          </div>
+          
+          <div className="form-group">
+            <input 
+              type="password" 
+              name="password" 
+              value={formData.password} 
+              onChange={handleChange} 
+              placeholder="Password" 
+              required 
+              disabled={isLoading}
+            />
+          </div>
+          
+          <button 
+            type="submit" 
+            disabled={isLoading}
+            className={isLoading ? 'loading' : ''}
+          >
+            {isLoading ? 'Signing In...' : 'Sign In'}
+          </button>
         </form>
-        <p>Don't have an account? <Link to="/register">Register here</Link></p>
+        
+        <p className="auth-link">
+          Don't have an account? <Link to="/register">Create one here</Link>
+        </p>
       </div>
     </div>
   );
