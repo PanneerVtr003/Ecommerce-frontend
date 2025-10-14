@@ -286,6 +286,7 @@
 .cart-items {
   background: white;
   border-radius: 16px;
+  padding: 30px;
   overflow: hidden;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
   animation: fadeIn 0.5s ease;
