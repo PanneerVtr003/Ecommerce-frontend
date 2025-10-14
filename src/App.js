@@ -16,6 +16,7 @@ import Navbar from './components/Navbar';
 function App() {
   return (
     <Router>
+    <ScrollToTop/>
       <AuthProvider>
         <CartProvider>
           <div className="App">
