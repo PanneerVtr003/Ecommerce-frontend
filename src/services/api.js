@@ -3,7 +3,7 @@
 // =========================
 // Base URL — LOCAL backend
 // =========================
-const API_BASE_URL = "http://localhost:5000/api";
+const API_BASE_URL = "https://ecommerce-backend-9987.onrender.com/api";
 
 // =========================
 // LocalStorage helpers
