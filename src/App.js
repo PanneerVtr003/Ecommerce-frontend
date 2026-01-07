@@ -1,26 +1,33 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import { CartProvider } from './context/CartContext';
-import Footer from './components/Footer';
-import Home from './pages/Home';
-import Products from './pages/Products';
-import Cart from './pages/Cart';
-import Checkout from './pages/Checkout';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Orders from './pages/Orders';
-import './App.css';
-import Navbar from './components/Navbar';
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+
+import { AuthProvider } from "./context/AuthContext";
+import { CartProvider } from "./context/CartContext";
+
+import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
+import ScrollToTop from "./components/ScrollToTop";
+
+import Home from "./pages/Home";
+import Products from "./pages/Products";
+import Cart from "./pages/Cart";
+import Checkout from "./pages/Checkout";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Orders from "./pages/Orders";
+
+import "./App.css";
 
 function App() {
   return (
     <Router>
-    <ScrollToTop/>
+      <ScrollToTop />
+
       <AuthProvider>
         <CartProvider>
           <div className="App">
-            <Navbar/>
+            <Navbar />
+
             <main>
               <Routes>
                 <Route path="/" element={<Home />} />
@@ -32,6 +39,7 @@ function App() {
                 <Route path="/orders" element={<Orders />} />
               </Routes>
             </main>
+
             <Footer />
           </div>
         </CartProvider>
