@@ -1,8 +1,22 @@
-const API_BASE_URL = "https://ecommerce-backend-9987.onrender.com/api";
+// src/api.js
 
+// =========================
+// Base URL — LOCAL backend
+// =========================
+const API_BASE_URL = "http://localhost:5000/api";
+
+// =========================
+// LocalStorage helpers
+// =========================
+export const setToken = (token) => localStorage.setItem("token", token);
+export const getToken = () => localStorage.getItem("token");
+export const removeToken = () => localStorage.removeItem("token");
+
+// =========================
 // Generic request function
+// =========================
 const request = async (method, endpoint, data = null) => {
-  const token = localStorage.getItem("token");
+  const token = getToken();
   const url = `${API_BASE_URL}${endpoint}`;
 
   const options = {
@@ -31,10 +45,7 @@ const request = async (method, endpoint, data = null) => {
       throw new Error(errorMessage);
     }
 
-    // For DELETE requests that might not return content
-    if (response.status === 204) {
-      return {};
-    }
+    if (response.status === 204) return {}; // DELETE may return empty
 
     return await response.json();
   } catch (err) {
@@ -42,7 +53,9 @@ const request = async (method, endpoint, data = null) => {
   }
 };
 
+// =========================
 // HTTP helper functions
+// =========================
 export const API = {
   get: (endpoint) => request("GET", endpoint),
   post: (endpoint, data) => request("POST", endpoint, data),
@@ -51,35 +64,36 @@ export const API = {
 };
 
 // =========================
-// Order helpers
+// User Auth (local backend)
 // =========================
-export const createOrder = (orderData) => {
-  const transformedItems = orderData.items.map((item) => ({
-    productId: item.id,
-    name: item.name,
-    price: item.price,
-    quantity: item.quantity,
-  }));
-
-  return API.post("/orders", { 
-    ...orderData, 
-    items: transformedItems 
-  });
+export const registerUser = async (userData) => {
+  const data = await API.post("/auth/register", userData);
+  if (data.token) setToken(data.token);
+  return data;
 };
 
-export const getOrders = () => API.get("/orders");
-export const getOrderById = (id) => API.get(`/orders/${id}`);
+export const loginUser = async (userData) => {
+  const data = await API.post("/auth/login", userData);
+  if (data.token) setToken(data.token);
+  return data;
+};
+
+export const logoutUser = () => removeToken();
+
+export const getProfile = () => API.get("/auth/profile");
+export const updateProfile = (userData) => API.put("/auth/profile", userData);
 
 // =========================
-// User auth helpers
+// Password Reset
 // =========================
-export const registerUser = (userData) => API.post("/users/register", userData);
-export const loginUser = (userData) => API.post("/users/login", userData);
-export const getProfile = () => API.get("/users/profile");
-export const updateProfile = (userData) => API.put("/users/profile", userData);
+export const forgotPassword = (email) =>
+  API.post("/auth/forgot-password", { email });
+
+export const resetPassword = (token, password) =>
+  API.post(`/auth/reset-password/${token}`, { password });
 
 // =========================
-// Product helpers
+// Products
 // =========================
 export const getProducts = (query = "") => API.get(`/products${query}`);
 export const getProductById = (id) => API.get(`/products/${id}`);
@@ -89,3 +103,20 @@ export const deleteProduct = (id) => API.delete(`/products/${id}`);
 export const createProductReview = (id, review) =>
   API.post(`/products/${id}/reviews`, review);
 export const getTopProducts = () => API.get("/products/top");
+
+// =========================
+// Orders
+// =========================
+export const createOrder = (orderData) => {
+  const items = orderData.items.map((item) => ({
+    productId: item.id,
+    name: item.name,
+    price: item.price,
+    quantity: item.quantity,
+  }));
+
+  return API.post("/orders", { ...orderData, items });
+};
+
+export const getOrders = () => API.get("/orders");
+export const getOrderById = (id) => API.get(`/orders/${id}`);

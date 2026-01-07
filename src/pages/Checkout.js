@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { createOrder } from "../services/api";
 import "./Checkout.css";
 
 const Checkout = () => {
@@ -11,7 +10,6 @@ const Checkout = () => {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [orderId, setOrderId] = useState(null);
   const [formErrors, setFormErrors] = useState({});
@@ -32,113 +30,52 @@ const Checkout = () => {
   });
 
   useEffect(() => {
-    if (user?.email) {
-      setFormData(prev => ({
-        ...prev,
-        email: user.email
-      }));
-    }
+    if (user?.email) setFormData(prev => ({ ...prev, email: user.email }));
 
     const savedInfo = localStorage.getItem("savedShippingInfo");
     if (savedInfo) {
-      try {
-        const parsedInfo = JSON.parse(savedInfo);
-        setFormData((prev) => ({
-          ...prev,
-          ...parsedInfo,
-          email: user?.email || prev.email,
-        }));
-      } catch (err) {
-        console.error('Error parsing saved shipping info:', err);
-      }
+      const parsed = JSON.parse(savedInfo);
+      setFormData(prev => ({ ...prev, ...parsed }));
     }
   }, [user]);
 
-  const generatePaymentCode = () => {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  };
+  const generatePaymentCode = () => Math.floor(100000 + Math.random() * 900000).toString();
 
   const validateForm = () => {
     const errors = {};
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const zipRegex = /^\d{5}(-\d{4})?$/;
-
-    if (!formData.firstName.trim()) errors.firstName = "First name is required";
-    if (!formData.lastName.trim()) errors.lastName = "Last name is required";
-    if (!emailRegex.test(formData.email)) errors.email = "Valid email is required";
-    if (!formData.address.trim()) errors.address = "Address is required";
-    if (!formData.city.trim()) errors.city = "City is required";
-    if (!zipRegex.test(formData.zipCode)) errors.zipCode = "Valid ZIP code is required";
+    if (!formData.firstName) errors.firstName = "Required";
+    if (!formData.lastName) errors.lastName = "Required";
+    if (!emailRegex.test(formData.email)) errors.email = "Valid email required";
+    if (!formData.address) errors.address = "Required";
+    if (!formData.city) errors.city = "Required";
+    if (!formData.zipCode) errors.zipCode = "Valid ZIP required";
 
     if (paymentMethod === "card") {
       const cardRegex = /^\d{13,19}$/;
-      const expiryRegex = /^(0[1-9]|1[0-2])\/\d{2}$/;
-      const cvvRegex = /^\d{3,4}$/;
-
-      const cleanCardNumber = formData.cardNumber.replace(/\s/g, "");
-      if (!cardRegex.test(cleanCardNumber))
-        errors.cardNumber = "Valid card number (13-19 digits) is required";
-      if (!expiryRegex.test(formData.expiryDate))
-        errors.expiryDate = "Valid expiry date (MM/YY) is required";
-      if (!cvvRegex.test(formData.cvv)) errors.cvv = "Valid CVV is required";
-
-      // Check if card is expired
-      if (formData.expiryDate && expiryRegex.test(formData.expiryDate)) {
-        const [month, year] = formData.expiryDate.split("/");
-        const expiry = new Date(2000 + parseInt(year), parseInt(month));
-        const currentDate = new Date();
-        if (expiry <= currentDate) errors.expiryDate = "Card has expired";
-      }
+      const clean = formData.cardNumber.replace(/\s/g, "");
+      if (!cardRegex.test(clean)) errors.cardNumber = "Invalid card";
     }
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === "checkbox" ? checked : value,
-    });
+  const handleSubmit = async e => {
+    e.preventDefault();
+    if (!validateForm()) return;
 
-    if (formErrors[name]) {
-      setFormErrors({ ...formErrors, [name]: "" });
-    }
-  };
+    setLoading(true);
 
-  const formatCardNumber = (value) => {
-    const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "");
-    const matches = v.match(/\d{1,16}/g);
-    const match = matches ? matches[0] : "";
-    const parts = [];
-    for (let i = 0; i < match.length; i += 4) {
-      
-      parts.push(match.substring(i, i + 4));
-    }
-    return parts.length ? parts.join(" ") : value;
-  };
+    if (formData.saveInfo) {
+      const { firstName, lastName, address, city, zipCode } = formData;
+      localStorage.setItem("savedShippingInfo", JSON.stringify({ firstName, lastName, address, city, zipCode }));
+    } else localStorage.removeItem("savedShippingInfo");
 
-  const handleCardNumberChange = (e) => {
-    const formattedValue = formatCardNumber(e.target.value);
-    setFormData({ ...formData, cardNumber: formattedValue });
-  };
+    const codCode = paymentMethod === "cod" ? generatePaymentCode() : null;
 
-  const handleSubmit = async (e) => {
-  e.preventDefault();
-
-  if (!validateForm()) {
-    setError("Please fix the form errors before submitting");
-    return;
-  }
-
-  setLoading(true);
-  setError("");
-
-  try {
-    // Prepare order data
     const orderData = {
-      items: items,
+      items,
       total: getCartTotal(),
       shippingAddress: {
         firstName: formData.firstName,
@@ -147,46 +84,36 @@ const Checkout = () => {
         address: formData.address,
         city: formData.city,
         zipCode: formData.zipCode,
-        country: 'United States'
+        country: "United States",
       },
-      paymentMethod: paymentMethod,
-      paymentCode: paymentMethod === 'cod' ? paymentCode : null
+      paymentMethod,
+      paymentCode: codCode,
     };
 
-    console.log('🛒 Sending order to backend:', orderData);
+    try {
+      const res = await fetch("http://localhost:5000/api/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify(orderData),
+      });
 
-    // Send order to backend
-    const response = await fetch('https://ecommerce-backend-9987.onrender.com/api/orders', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify(orderData)
-    });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed");
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to create order');
+      clearCart();
+      setOrderId(data.order._id);
+      setPaymentCode(codCode);
+      setOrderSuccess(true);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    console.log('✅ Order created successfully:', data);
-
-    // Clear cart and show success
-    clearCart();
-    setOrderId(data.order._id || data.order.id);
-    setOrderSuccess(true);
-    
-  } catch (err) {
-    console.error('❌ Order creation failed:', err);
-    setError(err.message || "Failed to create order. Please try again.");
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // ✅ Success screen
   if (orderSuccess) {
     return (
       <div className="checkout-page">
@@ -200,7 +127,7 @@ const Checkout = () => {
             <p>
               Your order ID is: <span className="order-id">{orderId}</span>
             </p>
-
+            
             {paymentMethod === "cod" && paymentCode && (
               <div className="payment-code-section">
                 <h3>Cash on Delivery Payment Code</h3>
@@ -228,8 +155,7 @@ const Checkout = () => {
     );
   }
 
-  // ✅ Empty cart state
-  if (items.length === 0 && !orderSuccess) {
+  if (items.length === 0) {
     return (
       <div className="checkout-page">
         <div className="empty-checkout">
@@ -244,45 +170,36 @@ const Checkout = () => {
     );
   }
 
-  // ✅ Main checkout form
   return (
     <div className="checkout-page">
       <div className="checkout-header">
         <h1>Checkout</h1>
+        <p>Complete your purchase securely</p>
       </div>
 
       <div className="checkout-container">
         <div className="checkout-form-container">
-          {error && (
-            <div className="error-message">
-              <span className="error-icon">⚠️</span>
-              {error}
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} className="checkout-form">
-            {/* Contact Info */}
+            {/* Contact Information */}
             <div className="form-section">
               <h2 className="section-title">👤 Contact Information</h2>
               <div className="form-row">
                 <div className="form-group">
                   <input
-                    type="text"
-                    name="firstName"
                     placeholder="First Name"
+                    name="firstName"
                     value={formData.firstName}
-                    onChange={handleInputChange}
+                    onChange={e => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
                     className={formErrors.firstName ? 'error' : ''}
                   />
                   {formErrors.firstName && <span className="field-error">{formErrors.firstName}</span>}
                 </div>
                 <div className="form-group">
                   <input
-                    type="text"
-                    name="lastName"
                     placeholder="Last Name"
+                    name="lastName"
                     value={formData.lastName}
-                    onChange={handleInputChange}
+                    onChange={e => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
                     className={formErrors.lastName ? 'error' : ''}
                   />
                   {formErrors.lastName && <span className="field-error">{formErrors.lastName}</span>}
@@ -290,27 +207,25 @@ const Checkout = () => {
               </div>
               <div className="form-group">
                 <input
-                  type="email"
-                  name="email"
                   placeholder="Email"
+                  name="email"
                   value={formData.email}
-                  onChange={handleInputChange}
+                  onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))}
                   className={formErrors.email ? 'error' : ''}
                 />
                 {formErrors.email && <span className="field-error">{formErrors.email}</span>}
               </div>
             </div>
 
-            {/* Shipping */}
+            {/* Shipping Address */}
             <div className="form-section">
               <h2 className="section-title">📍 Shipping Address</h2>
               <div className="form-group">
                 <input
-                  type="text"
+                  placeholder="Address"
                   name="address"
-                  placeholder="Street Address"
                   value={formData.address}
-                  onChange={handleInputChange}
+                  onChange={e => setFormData(prev => ({ ...prev, address: e.target.value }))}
                   className={formErrors.address ? 'error' : ''}
                 />
                 {formErrors.address && <span className="field-error">{formErrors.address}</span>}
@@ -318,22 +233,20 @@ const Checkout = () => {
               <div className="form-row">
                 <div className="form-group">
                   <input
-                    type="text"
-                    name="city"
                     placeholder="City"
+                    name="city"
                     value={formData.city}
-                    onChange={handleInputChange}
+                    onChange={e => setFormData(prev => ({ ...prev, city: e.target.value }))}
                     className={formErrors.city ? 'error' : ''}
                   />
                   {formErrors.city && <span className="field-error">{formErrors.city}</span>}
                 </div>
                 <div className="form-group">
                   <input
-                    type="text"
-                    name="zipCode"
                     placeholder="ZIP Code"
+                    name="zipCode"
                     value={formData.zipCode}
-                    onChange={handleInputChange}
+                    onChange={e => setFormData(prev => ({ ...prev, zipCode: e.target.value }))}
                     className={formErrors.zipCode ? 'error' : ''}
                   />
                   {formErrors.zipCode && <span className="field-error">{formErrors.zipCode}</span>}
@@ -341,15 +254,13 @@ const Checkout = () => {
               </div>
             </div>
 
-            {/* Payment */}
+            {/* Payment Method */}
             <div className="form-section">
               <h2 className="section-title">💳 Payment Method</h2>
               <div className="payment-options">
                 <label className="payment-option">
                   <input
                     type="radio"
-                    name="paymentMethod"
-                    value="card"
                     checked={paymentMethod === "card"}
                     onChange={() => setPaymentMethod("card")}
                   />
@@ -358,8 +269,6 @@ const Checkout = () => {
                 <label className="payment-option">
                   <input
                     type="radio"
-                    name="paymentMethod"
-                    value="cod"
                     checked={paymentMethod === "cod"}
                     onChange={() => setPaymentMethod("cod")}
                   />
@@ -371,56 +280,30 @@ const Checkout = () => {
                 <div className="card-details">
                   <div className="form-group">
                     <input
-                      type="text"
-                      name="cardNumber"
                       placeholder="Card Number"
                       value={formData.cardNumber}
-                      onChange={handleCardNumberChange}
+                      onChange={e => setFormData(prev => ({ ...prev, cardNumber: e.target.value }))}
                       className={formErrors.cardNumber ? 'error' : ''}
                     />
                     {formErrors.cardNumber && <span className="field-error">{formErrors.cardNumber}</span>}
-                  </div>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <input
-                        type="text"
-                        name="expiryDate"
-                        placeholder="MM/YY"
-                        value={formData.expiryDate}
-                        onChange={handleInputChange}
-                        className={formErrors.expiryDate ? 'error' : ''}
-                      />
-                      {formErrors.expiryDate && <span className="field-error">{formErrors.expiryDate}</span>}
-                    </div>
-                    <div className="form-group">
-                      <input
-                        type="text"
-                        name="cvv"
-                        placeholder="CVV"
-                        value={formData.cvv}
-                        onChange={handleInputChange}
-                        className={formErrors.cvv ? 'error' : ''}
-                      />
-                      {formErrors.cvv && <span className="field-error">{formErrors.cvv}</span>}
-                    </div>
                   </div>
                 </div>
               )}
             </div>
 
-            <label className="save-info-checkbox">
+            {/* Save Info */}
+            <div className="save-info-checkbox">
               <input
                 type="checkbox"
-                name="saveInfo"
                 checked={formData.saveInfo}
-                onChange={handleInputChange}
+                onChange={e => setFormData(prev => ({ ...prev, saveInfo: e.target.checked }))}
               />
-              Save shipping information for next time
-            </label>
+              <span>Save shipping information for next time</span>
+            </div>
 
-            <button 
-              type="submit" 
-              disabled={loading || items.length === 0}
+            <button
+              type="submit"
+              disabled={loading}
               className={loading ? 'loading' : ''}
             >
               {loading ? "Processing..." : `Place Order - $${getCartTotal().toFixed(2)}`}
@@ -432,8 +315,8 @@ const Checkout = () => {
         <div className="order-summary">
           <h2>Order Summary</h2>
           <div className="order-items">
-            {items.map((item) => (
-              <div key={item.id} className="order-item">
+            {items.map((item, index) => (
+              <div key={index} className="order-item">
                 <div className="item-info">
                   <span className="item-name">{item.name}</span>
                   <span className="item-quantity">x {item.quantity}</span>
@@ -443,10 +326,18 @@ const Checkout = () => {
             ))}
           </div>
           <div className="order-total">
-            <strong>Total: ${getCartTotal().toFixed(2)}</strong>
+            <strong>Total:</strong>
+            <span className="total-amount">${getCartTotal().toFixed(2)}</span>
           </div>
         </div>
       </div>
+      
+      {/* Loading Overlay */}
+      {loading && (
+        <div className="loading-overlay">
+          <div className="loading-spinner"></div>
+        </div>
+      )}
     </div>
   );
 };
