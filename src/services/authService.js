@@ -1,93 +1,64 @@
-// src/services/authService.js
-import { API, registerUser as apiRegisterUser, loginUser as apiLoginUser } from "./api";
+import { API } from './api';
 
-// =========================
-// User Registration
-// =========================
+// 🧾 Register new user
 export const registerUser = async (userData) => {
   try {
-    const data = await apiRegisterUser(userData);
-
-    // Save token to localStorage if backend returns it
-    if (data.token) {
-      localStorage.setItem("token", data.token);
-    }
-
-    return data;
-  } catch (err) {
-    throw new Error(err.message || "Registration failed");
+    const response = await API.post("/users/register", userData);
+    return response;
+  } catch (error) {
+    console.error('Error registering user:', error);
+    throw error;
   }
 };
 
-// =========================
-// User Login
-// =========================
+// 🔐 Login user
 export const loginUser = async (userData) => {
   try {
-    const data = await apiLoginUser(userData);
-
-    // Save token to localStorage
-    if (data.token) {
-      localStorage.setItem("token", data.token);
+    const response = await API.post("/users/login", userData);
+    
+    if (response.user && response.token) {
+      // Save user to localStorage for persistence
+      localStorage.setItem("user", JSON.stringify(response.user));
+      localStorage.setItem("token", response.token);
     }
-
-    return data;
-  } catch (err) {
-    throw new Error(err.message || "Login failed");
+    
+    return response;
+  } catch (error) {
+    console.error('Error logging in:', error);
+    throw error;
   }
 };
 
-// =========================
-// User Logout
-// =========================
+// 🚪 Logout
 export const logoutUser = () => {
+  localStorage.removeItem("user");
   localStorage.removeItem("token");
 };
 
-// =========================
-// Forgot Password
-// =========================
-export const forgotPassword = async (email) => {
-  try {
-    const data = await API.post("/users/forgot-password", { email });
-    return data;
-  } catch (err) {
-    throw new Error(err.message || "Forgot password request failed");
-  }
-};
-
-// =========================
-// Reset Password
-// =========================
-export const resetPassword = async (token, password) => {
-  try {
-    const data = await API.post(`/users/reset-password/${token}`, { password });
-    return data;
-  } catch (err) {
-    throw new Error(err.message || "Reset password failed");
-  }
-};
-
-// =========================
-// Get User Profile
-// =========================
+// 👤 Get user profile
 export const getProfile = async () => {
   try {
-    const data = await API.get("/users/profile");
-    return data;
-  } catch (err) {
-    throw new Error(err.message || "Fetching profile failed");
+    const response = await API.get("/users/profile");
+    return response;
+  } catch (error) {
+    console.error('Error fetching profile:', error);
+    throw error;
   }
 };
 
-// =========================
-// Update User Profile
-// =========================
-export const updateProfile = async (userData) => {
+// ✏️ Update user profile
+export const updateProfile = async (profileData) => {
   try {
-    const data = await API.put("/users/profile", userData);
-    return data;
-  } catch (err) {
-    throw new Error(err.message || "Updating profile failed");
+    const response = await API.put("/users/profile", profileData);
+    
+    // Update localStorage if user data is returned
+    if (response.user) {
+      localStorage.setItem("user", JSON.stringify(response.user));
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    throw error;
   }
 };

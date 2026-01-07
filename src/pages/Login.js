@@ -1,4 +1,3 @@
-// pages/Login.js
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -12,7 +11,6 @@ const Login = () => {
 
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -26,16 +24,12 @@ const Login = () => {
     setError("");
   };
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
-    if (!formData.email.trim() || !formData.password) {
+    if (!formData.email || !formData.password) {
       setError("All fields are required!");
       setIsLoading(false);
       return;
@@ -48,7 +42,7 @@ const Login = () => {
       // Find matching user
       const user = users.find(
         (u) =>
-          u.email.toLowerCase() === formData.email.trim().toLowerCase() &&
+          u.email === formData.email.trim() &&
           u.password === formData.password
       );
 
@@ -58,25 +52,19 @@ const Login = () => {
         return;
       }
 
-      // Create user object without password
-      const { password, ...userWithoutPassword } = user;
-      
+      // Fake token (for demo purpose)
+      const fakeToken = "local-auth-token";
+
       // Save login in AuthContext
-      login(userWithoutPassword);
-      
-      // Show success message
-      setTimeout(() => {
-        navigate("/");
-      }, 1000);
-      
+      login(user, fakeToken);
+
+      navigate("/");
     } catch (err) {
       setError("Login failed. Please try again.");
-      console.error(err);
     } finally {
       setIsLoading(false);
     }
   };
-
 
   return (
     <div className="auth-container">
@@ -88,78 +76,38 @@ const Login = () => {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="email">Email</label>
             <input
-              id="email"
               type="email"
               name="email"
-              placeholder="Enter your email"
+              placeholder="Email address"
               value={formData.email}
               onChange={handleChange}
               disabled={isLoading}
               required
-              autoComplete="email"
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <div style={{ position: "relative" }}>
-              <input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                name="password"
-                placeholder="Enter your password"
-                value={formData.password}
-                onChange={handleChange}
-                disabled={isLoading}
-                required
-                autoComplete="current-password"
-              />
-              <button
-                type="button"
-                onClick={togglePasswordVisibility}
-                style={{
-                  position: "absolute",
-                  right: "12px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background: "transparent",
-                  border: "none",
-                  color: "#667eea",
-                  cursor: "pointer",
-                  fontSize: "0.9rem",
-                  padding: "4px",
-                  width: "auto",
-                  margin: 0,
-                }}
-                disabled={isLoading}
-              >
-                {showPassword ? "🙈" : "👁️"}
-              </button>
-            </div>
+            <input
+              type="password"
+              name="password"
+              placeholder="Password"
+              value={formData.password}
+              onChange={handleChange}
+              disabled={isLoading}
+              required
+            />
           </div>
 
-          <button 
-            type="submit" 
-            disabled={isLoading}
-            className={isLoading ? "loading" : ""}
-          >
+          <button type="submit" disabled={isLoading}>
             {isLoading ? "Signing In..." : "Sign In"}
           </button>
-
-          <Link to="/forgot-password" className="forgot-link">
-          Forgot Password?
-          </Link>
-          
         </form>
 
         <p className="auth-link">
           Don&apos;t have an account?{" "}
           <Link to="/register">Create one here</Link>
         </p>
-        
-       
       </div>
     </div>
   );
